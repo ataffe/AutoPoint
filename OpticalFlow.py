@@ -7,8 +7,8 @@ import gc
 import flow_vis
 import numpy as np
 
-def get_optical_flows(video_path):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def get_optical_flows(video_path, device='cpu'):
     torch.set_grad_enabled(False)
 
     raft = raft_large(weights=Raft_Large_Weights.DEFAULT, progress=False).to(device)
