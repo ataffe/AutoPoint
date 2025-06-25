@@ -58,11 +58,14 @@ def interpolate(flows, frame1, click1, frame2, click2, radius=20, device='cpu'):
         forward_i[t] = forward_i_min + np.arange(height)[:, None] - radius
         forward_j[t] = forward_j_min + np.arange(width)[None] - radius
 
+    # Get the last frame's cost at the click2 position
     last_cost = torch.ones((height, width)).to(device) * 1e10
     last_cost[y2, x2] = 0
     forward_cost += last_cost
     min_cost = torch.min(forward_cost).cpu().numpy()
 
+    # Get the indices of the minimum cost in the last frame
+    # Which is the last frame's cost at the click2 position
     argmin_indices = torch.argmin(forward_cost).item()
     min_i, min_j = argmin_indices // width, argmin_indices % width
     min_ij = [(min_j, min_i)]
@@ -78,8 +81,13 @@ def interpolate(flows, frame1, click1, frame2, click2, radius=20, device='cpu'):
 
 
 def test_interpolate():
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
+        device = "mps"
     video_path = 'videos/horsejump-high.mp4'
-    optical_flows = get_optical_flows(video_path, 'mps')
+    optical_flows = get_optical_flows(video_path, device)
     video = cv2.VideoCapture(video_path)
     video_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
     video_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -90,7 +98,7 @@ def test_interpolate():
     assert success, "Failed to read the second frame from the video."
     point1 = (video_height // 2, video_width // 2)
     point2 = (video_height // 2 + 50, video_width // 2 + 50)
-    min_ij, min_cost = interpolate(optical_flows, 0, point1, 25, point2, radius=20)
+    min_ij, min_cost = interpolate(optical_flows, 0, point1, 25, point2, 20, device)
     print("Interpolated points:", min_ij)
     video.release()
 
