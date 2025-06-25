@@ -12,8 +12,10 @@ def interpolate(flows, frame1, click1, frame2, click2, radius=20, device='cpu'):
 
     # window = 41
     window = 2 * radius + 1
+
     # Creates a mesh grid -20, -19, ... 0 ..., 19, 20
     x, y = np.meshgrid(np.arange(-radius, radius + 1), np.arange(-radius, radius + 1))
+    # Not sure why this is done, but it creates a 2D array of offsets
     offset_cost = np.stack([x, y], axis=-1)
     offset_cost = torch.tensor(offset_cost).to(device)
 
@@ -32,26 +34,37 @@ def interpolate(flows, frame1, click1, frame2, click2, radius=20, device='cpu'):
 
     # From starting frame to ending frame
     for t in tqdm(range(frame1, frame2)):
-        # Pad forward cost on all sides by radius = 20
+        # Pad forward cost on all sides by radius
         cost_pad = torch.nn.functional.pad(forward_cost, (radius, radius, radius, radius), 'constant', value=1e10)
+
+        # ---------------------------------------
+        # Honestly I don't understand this part starting here...
+        # ---------------------------------------
+        # Slice the cost tensor into patches of size (window, window) ?
         cost_unfold = cost_pad.unfold(0, window, 1).unfold(1, window, 1)
         del cost_pad
         gc.collect()
         torch.cuda.empty_cache()
 
         flow_cuda = torch.tensor(flows[t]).to(device)
+        # Pad the flow tensor on all sides by radius
         flow_pad = torch.nn.functional.pad(flow_cuda, (0, 0, radius, radius, radius, radius), 'constant', value=1e10)
+        # Slice the flow tensor into patches of size (window, window, 2) ??
         flow_unfold = flow_pad.unfold(0, window, 1).unfold(1, window, 1).permute(0, 1, 3, 4, 2)
         del flow_cuda, flow_pad
         gc.collect()
         torch.cuda.empty_cache()
 
+        # Calculate the cost by adding the unfolded cost and the absolute difference between the unfolded flow and the offset cost
         cost = cost_unfold + torch.abs(-offset_cost[None, None] - flow_unfold).sum(axis=-1)
         cost = cost.reshape(height, width, -1)
         forward_cost, argmin_indices = torch.min(cost, axis=-1)
         del cost
         gc.collect()
         torch.cuda.empty_cache()
+        # ---------------------------------------
+        # End of the part I don't understand
+        # ---------------------------------------
 
         argmin_indices = argmin_indices.cpu().numpy()
         forward_i_min, forward_j_min = argmin_indices // (window), argmin_indices % (window)

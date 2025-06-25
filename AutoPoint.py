@@ -146,5 +146,3 @@ if __name__ == "__main__":
     video_path = 'videos/horsejump-high.mp4'
     optical_flows = get_optical_flows(video_path, device)
     run_autopoint(video_path, optical_flows, device)
-    # print(optical_flows.shape)
-    # start_annotation(video_path)
