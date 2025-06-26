@@ -6,6 +6,7 @@ import json
 class AnnotatedVideo:
     def __init__(self):
         self.frames = {}
+        self.path = ''
 
     def get_last_frame_num(self):
         if not self.frames:
